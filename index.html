@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BuenStock Pro - Administrador</title>
+    <title>BuenStock Pro - Control de Inventario</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        #login-screen { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; text-align: center; margin-top: 50px; }
+        #login-screen { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 320px; text-align: center; margin-top: 50px; }
         #main-content { display: none; width: 100%; max-width: 900px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
         
-        /* FORMULARIO */
         .form-registro { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; }
         .form-registro input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; }
-        .btn-add { background: #059669; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-add:hover { background: #047857; }
+        .btn-add { background: #059669; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: #2563eb; color: white; padding: 12px; text-align: left; }
         td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
         
@@ -24,8 +22,9 @@
         .total-card { margin-top: 20px; background: #2563eb; color: white; padding: 20px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; }
         .btn-delete { color: #ef4444; cursor: pointer; border: none; background: none; font-size: 18px; }
         
-        input[type="password"] { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        input[type="password"] { width: 90%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd; }
         .btn-login { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-clear { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -38,16 +37,16 @@
     </div>
 
     <div id="main-content">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <h2 style="margin:0"><i class="fas fa-store"></i> Panel de Control</h2>
-            <button onclick="location.reload()" style="border:none; background:#f1f5f9; padding:8px 15px; border-radius:8px; cursor:pointer">Salir</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin:0"><i class="fas fa-store"></i> Panel Bs.</h2>
+            <button onclick="borrarTodo()" class="btn-clear"><i class="fas fa-eraser"></i> Limpiar Todo</button>
         </div>
 
         <div class="form-registro">
-            <input type="text" id="prodNombre" placeholder="Nombre del producto">
+            <input type="text" id="prodNombre" placeholder="Producto">
             <input type="number" id="prodStock" placeholder="Cant.">
-            <input type="number" id="prodPrecio" placeholder="Precio $">
-            <button class="btn-add" onclick="agregarProducto()"><i class="fas fa-plus"></i> Añadir</button>
+            <input type="number" id="prodPrecio" placeholder="Precio Bs.">
+            <button class="btn-add" onclick="agregarProducto()">+ Añadir</button>
         </div>
 
         <table id="tablaInventario">
@@ -60,22 +59,28 @@
                     <th></th>
                 </tr>
             </thead>
-            <tbody>
-                </tbody>
+            <tbody></tbody>
         </table>
 
         <div class="total-card">
-            <span>VALOR TOTAL EN MERCANCÍA</span>
-            <span id="granTotal" style="font-size: 24px; font-weight: bold;">$0.00</span>
+            <span>TOTAL EN MERCANCÍA</span>
+            <span id="granTotal" style="font-size: 24px; font-weight: bold;">Bs. 0.00</span>
         </div>
     </div>
 
     <script>
+        // 1. Cargar datos al abrir la página
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('productos')) {
+                renderizarTabla();
+            }
+        });
+
         function checkKey() {
             if (document.getElementById('accessKey').value === "1234") {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
-            } else { alert("Error"); }
+            } else { alert("Clave incorrecta"); }
         }
 
         function agregarProducto() {
@@ -83,49 +88,62 @@
             const stock = parseInt(document.getElementById('prodStock').value);
             const precio = parseFloat(document.getElementById('prodPrecio').value);
 
-            if (nombre && stock >= 0 && precio >= 0) {
-                const tabla = document.getElementById('tablaInventario').getElementsByTagName('tbody')[0];
-                const nuevaFila = tabla.insertRow();
+            if (nombre && !isNaN(stock) && !isNaN(precio)) {
+                const nuevoProd = { nombre, stock, precio };
                 
-                const subtotal = stock * precio;
+                // Guardar en el arreglo de LocalStorage
+                let productos = JSON.parse(localStorage.getItem('productos') || "[]");
+                productos.push(nuevoProd);
+                localStorage.setItem('productos', JSON.stringify(productos));
+
+                renderizarTabla();
                 
-                // Si el stock es bajo, le ponemos la advertencia
-                const stockVisual = stock < 10 ? `<span class="low-stock"><i class="fas fa-exclamation-triangle"></i> ${stock}</span>` : stock;
-
-                nuevaFila.innerHTML = `
-                    <td>${nombre}</td>
-                    <td>${stockVisual}</td>
-                    <td>$${precio.toFixed(2)}</td>
-                    <td>$${subtotal.toFixed(2)}</td>
-                    <td><button class="btn-delete" onclick="borrarFila(this)"><i class="fas fa-trash"></i></button></td>
-                `;
-
-                actualizarTotal();
-                // Limpiar los cuadritos después de agregar
                 document.getElementById('prodNombre').value = "";
                 document.getElementById('prodStock').value = "";
                 document.getElementById('prodPrecio').value = "";
             } else {
-                alert("Por favor llena todos los campos con números válidos");
+                alert("Completa los datos correctamente");
             }
         }
 
-        function borrarFila(boton) {
-            if(confirm("¿Borrar este producto?")) {
-                boton.parentElement.parentElement.remove();
-                actualizarTotal();
-            }
+        function renderizarTabla() {
+            const tbody = document.querySelector('#tablaInventario tbody');
+            tbody.innerHTML = "";
+            let productos = JSON.parse(localStorage.getItem('productos') || "[]");
+            let totalGeneral = 0;
+
+            productos.forEach((p, index) => {
+                const subtotal = p.stock * p.precio;
+                totalGeneral += subtotal;
+                const row = tbody.insertRow();
+                const stockClase = p.stock < 10 ? 'class="low-stock"' : '';
+
+                row.innerHTML = `
+                    <td>${p.nombre}</td>
+                    <td ${stockClase}>${p.stock}</td>
+                    <td>Bs. ${p.precio.toLocaleString('es-VE')}</td>
+                    <td>Bs. ${subtotal.toLocaleString('es-VE')}</td>
+                    <td><button class="btn-delete" onclick="borrarFila(${index})"><i class="fas fa-trash"></i></button></td>
+                `;
+            });
+
+            document.getElementById('granTotal').innerText = "Bs. " + totalGeneral.toLocaleString('es-VE', {minimumFractionDigits: 2});
         }
 
-        function actualizarTotal() {
-            let total = 0;
-            const tabla = document.getElementById('tablaInventario');
-            for (let i = 1; i < tabla.rows.length; i++) {
-                let sub = tabla.rows[i].cells[3].innerText.replace('$', '');
-                total += parseFloat(sub);
+        function borrarFila(index) {
+            let productos = JSON.parse(localStorage.getItem('productos'));
+            productos.splice(index, 1);
+            localStorage.setItem('productos', JSON.stringify(productos));
+            renderizarTabla();
+        }
+
+        function borrarTodo() {
+            if(confirm("¿Seguro que quieres borrar todo el inventario?")) {
+                localStorage.removeItem('productos');
+                renderizarTabla();
             }
-            document.getElementById('granTotal').innerText = "$" + total.toFixed(2);
         }
     </script>
 </body>
 </html>
+<footer>Desarrollado con ❤️ por [alexis marcano]</footer>
